@@ -87,7 +87,7 @@ class Loader {
 		// If query has been persisted to our custom post type, return it.
 		$query = wp_cache_get($query_id, $this->namespace);
 
-		return isset( $query->content ) ? $query->content : null;
+		return isset( $query['content'] ) ? $query['content'] : null;
 	}
 
 	/**
