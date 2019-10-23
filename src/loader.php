@@ -30,36 +30,12 @@ class Loader {
 	private $namespace = 'graphql_persisted_queries';
 
 	/**
-	 * Post type for default query persistence. Unused if query persistence is
-	 * disabled. Filter with graphql_persisted_query_post_type.
-	 *
-	 * @var string
-	 */
-	private $post_type = 'graphql_query';
-
-	/**
 	 * Filter configuration values and register the post type used to store
 	 * persisted queries.
 	 *
 	 * @return void
 	 */
 	public function init() {
-		/**
-		 * Post type to use to persist queries. Unused if disabled.
-		 *
-		 * @param string $post_type
-		 * @since 1.0.0
-		 */
-		$this->post_type = apply_filters( "{$this->namespace}_post_type", $this->post_type );
-
-		// If the post type doesn't look right, don't hook.
-		if ( empty( $this->post_type ) || post_type_exists( $this->post_type ) ) {
-			return;
-		}
-
-		// Register the post type.
-		$this->register_post_type();
-
 		// Filter request data to load/save queries.
 		add_filter( 'graphql_request_data', [ $this, 'process_request_data' ], 10, 1 );
 
@@ -108,22 +84,10 @@ class Loader {
 	 * @return string Query
 	 */
 	private function load( $query_id ) {
-		/**
-		 * Allow other implementors to load queries.
-		 *
-		 * @param string $query    Persisted query.
-		 * @param string $query_id Query ID.
-		 * @since 1.1.0
-		 */
-		$query = apply_filters( "{$this->namespace}_load_query", null, $query_id );
-		if ( $query ) {
-			return $query;
-		}
-
 		// If query has been persisted to our custom post type, return it.
-		$post = get_page_by_path( $query_id, 'OBJECT', $this->post_type );
+		$query = wp_cache_get($query_id, $this->namespace);
 
-		return isset( $post->post_content ) ? $post->post_content : null;
+		return isset( $query->content ) ? $query->content : null;
 	}
 
 	/**
@@ -166,37 +130,6 @@ class Loader {
 	}
 
 	/**
-	 * Register the persisted query post type.
-	 *
-	 * @return void
-	 */
-	private function register_post_type() {
-		$post_type_args = [
-			'label'               => 'Queries',
-			'public'              => false,
-			'query_var'           => false,
-			'rewrite'             => false,
-			'show_in_rest'        => false,
-			'show_in_graphql'     => false,
-			'graphql_single_name' => 'persistedQuery',
-			'graphql_plural_name' => 'persistedQueries',
-			'show_ui'             => false,
-			'supports'            => [ 'title', 'editor' ],
-		];
-
-		/**
-		 * Post type args for persisted queries. Filter this to expose the post type
-		 * in the UI or in GraphQL.
-		 *
-		 * @param bool $post_type_args Register post type args.
-		 * @since 1.1.0
-		 */
-		$post_type_args = apply_filters( "{$this->namespace}_post_type_args", $post_type_args );
-
-		register_post_type( $this->post_type, $post_type_args );
-	}
-
-	/**
 	 * Save (persist) a query.
 	 *
 	 * @param  string $query_id Query ID
@@ -205,33 +138,9 @@ class Loader {
 	 * @return void
 	 */
 	private function save( $query_id, $query, $name = 'UnnamedQuery' ) {
-		// Check to see if the query has already been persisted. If so, we're done.
-		if ( ! empty( $this->load( $query_id ) ) ) {
-			return;
-		}
-
-		$post_data = [
-			'post_content' => $query,
-			'post_name'    => $query_id,
-			'post_title'   => $name,
-			'post_status'  => 'publish',
-			'post_type'    => $this->post_type,
-		];
-
-		/**
-		 * Allow implementors to override persisted query.
-		 *
-		 * @param bool   $post_data Post data for persisted query.
-		 * @param string $query_id  Query ID.
-		 * @since 1.1.0
-		 */
-		$post_data = apply_filters( "{$this->namespace}_save_query", $post_data, $query_id );
-
-		if ( empty( $post_data ) ) {
-			return;
-		}
-
-		// Persist the query.
-		wp_insert_post( $post_data );
+        wp_cache_add( $query_id, [
+            'content' => $query,
+            'title'   => $name,
+        ], $this->namespace );
 	}
 }
