@@ -12,6 +12,8 @@ use GraphQL\Language\Parser;
 use GraphQL\Server\OperationParams;
 use GraphQL\Server\ServerConfig;
 
+const VERSION = 2;
+
 /**
  * Load or save a persisted query from a custom post type. This allows users to
  * avoid sending the query over the wire, saving bandwidth. In particular, it
@@ -93,7 +95,7 @@ class Loader {
      */
     private function load( $query_id ) {
         // If query has been persisted to our custom post type, return it.
-        return wp_cache_get( $query_id, $this->namespace);
+        return wp_cache_get( VERSION . ':' . $query_id, $this->namespace);
     }
 
     /**
@@ -160,7 +162,7 @@ class Loader {
      * @return void
      */
     private function save( $query_id, $query, $is_validated, $name = 'UnnamedQuery' ) {
-        wp_cache_add( $query_id, [
+        wp_cache_add( VERSION . ':' . $query_id, [
             'query' => Parser::parse($query),
             'query_validated'   => $is_validated,
             'name' => $name
